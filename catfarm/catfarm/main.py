@@ -8,6 +8,7 @@ import datetime as dt
 import pathlib
 import random
 
+from . import captions as capmod
 from . import compile as comp
 from . import sources
 
@@ -37,6 +38,8 @@ def main() -> None:
     ap.add_argument("--clips-per-video", type=int, default=12)
     ap.add_argument("--query", default="cat")
     ap.add_argument("--music-dir", default="music", help="folder of royalty-free tracks you have rights to")
+    ap.add_argument("--voiceover", action="store_true", help="narrate captions (needs: pip install edge-tts)")
+    ap.add_argument("--shorts", action="store_true", help="also make a vertical Short per video (free marketing)")
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
 
@@ -54,17 +57,29 @@ def main() -> None:
         files = [sources.download(c, work) for c in clips]
         title = random.choice(TITLES)
         out = outdir / f"cats_{dt.date.today():%Y%m%d}_{i + 1}.mp4"
-        comp.build_video(files, out, title.split(" Funny")[0][:40], music)
+        caps = capmod.make(len(files))
+        voices = [comp.voice(t, work / f"v{i}_{j}.mp3") for j, t in enumerate(caps)] if a.voiceover else None
+        comp.build_video(files, out, title.split(" Funny")[0][:40], music, caps, voices)
         credits = "\n".join(f"- {c.author} ({c.source}): {c.page}" for c in clips)
         desc = (f"{title}\n\nClips licensed for free use. Thanks to the creators:\n{credits}\n\n"
                 "Subscribe for new cat videos every day! 🐾")
         sources.mark_used(clips)
+        short = None
+        if a.shorts:
+            short = outdir / f"short_{out.stem}.mp4"
+            comp.build_short(files[:4], short, "Cats 😹", music, caps[:4], voices[:4] if voices else None)
         if a.dry_run:
-            print(f"built {out} (would publish {when[i]})")
-        else:
-            from .upload import upload
-            vid = upload(out, title, desc, ["cats", "funny cats", "cute cats", "kittens"], when[i])
-            print(f"scheduled https://youtu.be/{vid} for {when[i]}")
+            print(f"built {out}" + (f" + {short}" if short else "") + f" (would publish {when[i]})")
+            continue
+        from .upload import upload
+        tags = ["cats", "funny cats", "cute cats", "kittens"]
+        vid = upload(out, title, desc, tags, when[i])
+        print(f"scheduled https://youtu.be/{vid} for {when[i]}")
+        if short:  # publish the Short ~4h before the long video, linking to it
+            sdesc = f"Full video: https://youtu.be/{vid}\n\n#Shorts #cats\n\n{credits}"
+            sat = (dt.datetime.fromisoformat(when[i].replace("Z", "+00:00")) - dt.timedelta(hours=4)).strftime("%Y-%m-%dT%H:%M:%SZ")
+            sid = upload(short, "Cats being cats 😹 #Shorts", sdesc, tags + ["shorts"], sat)
+            print(f"scheduled Short https://youtu.be/{sid} for {sat}")
 
 
 if __name__ == "__main__":

@@ -13,8 +13,14 @@ Builds cat compilations from **reuse-licensed** clips (Pexels, Pixabay) and sche
 ## Run
 ```sh
 python -m catfarm.main --videos 2 --dry-run     # build only
-python -m catfarm.main --videos 7 --per-day 1   # a week of scheduled uploads
+python -m catfarm.main --videos 7 --per-day 1 --shorts --voiceover   # a week of videos + Shorts
 ```
+
+## Original layer
+Each clip gets a funny caption (Claude API if `ANTHROPIC_API_KEY` is set, otherwise built-in templates).
+`--voiceover` narrates them (`pip install edge-tts`). `--shorts` also builds a vertical Short per video.
+
+See `MARKETING.md` for the free promotion plan.
 
 ## Making money
 Monetization needs the YouTube Partner Program (1,000 subs + 4,000 watch hours, or 500 subs + 3 uploads + 3,000 hours
